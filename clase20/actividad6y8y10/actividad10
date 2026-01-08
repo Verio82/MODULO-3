@@ -1,0 +1,108 @@
+require("dotenv").config();
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const { z } = require("zod");
+
+const app = express();
+app.use(express.json());
+
+const SECRET_KEY = process.env.SECRET_KEY;
+
+/* TEST SERVER */
+app.get("/", (req, res) => {
+  res.send("API Usuarios OK");
+});
+
+/* BASE DE DATOS FAKE */
+const users = [];
+
+/* ZOD */
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  rol: z.enum(["user", "admin"])
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string()
+});
+
+/* REGISTRO */
+app.post("/registro", (req, res) => {
+  const result = registerSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(400).json({ message: "Datos inválidos" });
+  }
+
+  users.push(result.data);
+
+  res.status(201).json({ message: "Usuario registrado" });
+});
+
+/* LOGIN */
+app.post("/login", (req, res) => {
+  const result = loginSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(400).json({ message: "Datos inválidos" });
+  }
+
+  const user = users.find(
+    u => u.email === result.data.email && u.password === result.data.password
+  );
+
+  if (!user) {
+    return res.status(401).json({ message: "Credenciales incorrectas" });
+  }
+
+  const token = jwt.sign(
+    { email: user.email, rol: user.rol },
+    SECRET_KEY,
+    { expiresIn: "1h" }
+  );
+
+  res.json({ token });
+});
+
+/* TOKEN */
+const verificarToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ message: "Token no enviado" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    req.user = jwt.verify(token, SECRET_KEY);
+    next();
+  } catch {
+    res.status(401).json({ message: "Token inválido" });
+  }
+};
+
+/* ADMIN */
+const verificarAdmin = (req, res, next) => {
+  if (req.user.rol !== "admin") {
+    return res.status(403).json({ message: "Solo admin" });
+  }
+  next();
+};
+
+/* PERFIL */
+app.get("/perfil", verificarToken, (req, res) => {
+  res.json({ message: "Perfil", user: req.user });
+});
+
+/* ADMIN */
+app.get("/admin", verificarToken, verificarAdmin, (req, res) => {
+  res.json({ message: "Admin OK" });
+});
+
+/* SERVER */
+app.listen(process.env.PORT, () => {
+  console.log("🚀 API Usuarios levantada");
+});
