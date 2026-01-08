@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Prueba CORS</title>
+</head>
+<body>
+
+  <h1>Productos</h1>
+  <ul id="lista"></ul>
+
+  <script>
+    fetch("http://localhost:3000/productos")
+      .then(res => res.json())
+      .then(data => {
+        const lista = document.getElementById("lista");
+        data.forEach(p => {
+          const li = document.createElement("li");
+          li.textContent = p.nombre;
+          lista.appendChild(li);
+        });
+      });
+  </script>
+
+</body>
+</html>
